@@ -1,0 +1,581 @@
+{
+  "name": "MyDocAiAgent copy",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "025b698f-f3cd-423e-bde9-00a4a3b81869",
+      "name": "File Ref",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        -1140,
+        80
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n{\n  \"error\": null,\n  \"meta\": {\n    \"hash\": $('Get File Hash').first().json.data,\n  },\n  \"result\": $json.response\n}\n}}",/Users/sofia/Desktop/MyDocAiAgent.json
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "7f5303c7-bb51-44e1-aa9a-861ba649eace",
+      "name": "Success1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        1080,
+        -40
+      ],
+      "typeVersion": 1.1,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "d908d5a9-3550-45ce-8645-19c08d3e5982",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              },
+              "leftValue": "fileExtension",
+              "rightValue": "pdf"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "32236378-afce-490c-a720-94d782868dcd",
+      "name": "Is Valid File?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        340,
+        800
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "file",
+        "options": {}
+      },
+      "id": "1e078522-dbb6-41e1-9a07-60f6030ed5cd",
+      "name": "Extract from File",
+      "type": "n8n-nodes-base.extractFromFile",
+      "position": [
+        -840,
+        80
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "10335d9e-7e0a-4ee1-a275-71d2f75b6bba",
+              "name": "response",
+              "type": "string",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e90443b9-6558-4fcb-b98c-4f1d15f8114a",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        520,
+        -40
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"error\": \"Unable to parse document. Please ensure file is less than 10mb with maximum of 20 pages.\",\n  \"result\": []\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "7e805baa-3f75-4b1f-b4c9-3705499a10da",
+      "name": "400 Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        600,
+        800
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "type": "SHA256",
+        "value": "={{ $('File Ref').first().binary + '_' + $('File Ref').first().fileName + '_' + new Date().getTime() }}",
+        "dataPropertyName": "fileHash"
+      },
+      "id": "2be6b188-1a22-4f6b-a56c-8cd43f0f6ac1",
+      "name": "Get File Hash",
+      "type": "n8n-nodes-base.crypto",
+      "position": [
+        -1000,
+        320
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "7da82981-2998-4ce0-9897-f3d0c058b2e3",
+        "responseMode": "responseNode",
+        "options": {
+          "ignoreBots": false
+        }
+      },
+      "id": "8a87cc0c-7b1d-4a4f-8280-139dfd7a5e23",
+      "name": "POST /ai_pdf_summariser",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        -1300,
+        320
+      ],
+      "webhookId": "7da82981-2998-4ce0-9897-f3d0c058b2e3",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Tu es un assistant intelligent spécialisé dans l'extraction de métadonnées. Tu dois analyser le texte et extraire les métadonnées pertinentes selon le type de document détecté.\n\n**TEXTE À ANALYSER :**\n{{ $('Extract from File').first().json.text }}\n\n\n**TYPE DE DOCUMENT DÉTECTÉ :** {{ $('AI Classifier').first().json.output }}\n\n\n**INSTRUCTION :** Analyse le texte et extrait PRÉCISÉMENT les métadonnées selon le type de document détecté.\n\n---\n\n## 📋 RÈGLES D'EXTRACTION PAR TYPE DE DOCUMENT\n\n### 📄 CONTRAT\n**Métadonnées à extraire :**\n- parties_signataires : Liste des parties qui signent le contrat\n- entreprise_emettrice : Entreprise qui émet/propose le contrat\n- entreprise_beneficiaire : Entreprise qui bénéficie du contrat\n- date_signature : Date de signature du contrat\n- date_debut : Date de début d'exécution\n- date_fin : Date de fin d'exécution\n- objet_contrat : Objet/nature du contrat\n- montant : Montant du contrat avec devise\n- duree : Durée du contrat\n- conditions_principales : Conditions et clauses importantes\n\n### 🧾 FACTURE\n**Métadonnées à extraire :**\n- numero_facture : Numéro de la facture\n- emetteur : Entreprise qui émet la facture\n- client : Client/destinataire de la facture\n- date_emission : Date d'émission\n- date_echeance : Date d'échéance\n- montant_ht : Montant hors taxes\n- montant_ttc : Montant toutes taxes comprises\n- tva : Montant de la TVA\n- articles : Liste des articles/services facturés\n\n### 💰 FICHE DE PAIE\n**Métadonnées à extraire :**\n- nom_employe : Nom de l'employé\n- entreprise : Nom de l'entreprise\n- periode : Période de paie\n- salaire_brut : Salaire brut\n- salaire_net : Salaire net\n- cotisations : Montant des cotisations\n- date_paiement : Date de paiement\n- poste : Poste occupé\n\n### 📋 ATTESTATION\n**Métadonnées à extraire :**\n- beneficiaire : Personne qui bénéficie de l'attestation\n- organisme_emetteur : Organisme qui délivre l'attestation\n- date_emission : Date d'émission\n- objet_attestation : Objet de l'attestation\n- periode_concernee : Période concernée par l'attestation\n- validite : Durée de validité\n\n### 📧 LETTRE\n**Métadonnées à extraire :**\n- expediteur : Personne/entreprise qui envoie\n- destinataire : Personne/entreprise qui reçoit\n- date : Date de la lettre\n- objet : Objet de la lettre\n- entreprise : Entreprise concernée\n- sujet_principal : Sujet principal de la lettre\n\n### 📊 RAPPORT\n**Métadonnées à extraire :**\n- titre : Titre du rapport\n- auteur : Auteur du rapport\n- entreprise : Entreprise concernée\n- date : Date du rapport\n- resume : Résumé du rapport\n- conclusions : Conclusions principales\n- periode_couverte : Période couverte par le rapport\n\n### 📋 AUTRES DOCUMENTS\n**Métadonnées à extraire :**\n- titre : Titre du document\n- auteur : Auteur du document\n- date : Date du document\n- entreprise : Entreprise concernée\n- sujet : Sujet principal\n- informations_cles : Informations importantes\n\n---\n\n## 🔍 INSTRUCTIONS DE RECHERCHE\n\n**Comment extraire les informations :**\n1. **Lis TOUT le texte** attentivement\n2. **Cherche les mots-clés** correspondants au type de document\n3. **Adapte ta recherche** aux variantes linguistiques (ex: \"montant\", \"prix\", \"coût\")\n4. **Extrait les valeurs exactes** du document\n5. **Normalise les formats** (dates en YYYY-MM-DD, montants avec devise)\n\n**Mots-clés par type :**\n- **Contrat** : \"contrat\", \"parties\", \"signataires\", \"prestation\", \"durée\", \"montant\"\n- **Facture** : \"facture\", \"n°\", \"TVA\", \"HT\", \"TTC\", \"client\", \"fournisseur\"\n- **Fiche de paie** : \"salaire\", \"brut\", \"net\", \"cotisations\", \"employé\", \"période\"\n- **Attestation** : \"atteste\", \"certifie\", \"délivre\", \"valable\", \"période\"\n- **Lettre** : \"lettre\", \"courrier\", \"destinataire\", \"expéditeur\", \"objet\"\n- **Rapport** : \"rapport\", \"analyse\", \"conclusion\", \"période\", \"résultats\"\n\n---\n\n## 📝 AJOUT À EFFECTUER\n\n**En plus des métadonnées, génère un résumé clair et concis du document.**\n\n- Résume en **5 à 10 lignes maximum**.\n- Utilise un **langage simple et professionnel**.\n- Place ce résumé dans le champ `\"resume_document\"` du JSON final.\n\n---\n\n## 📤 FORMAT DE SORTIE\n\n**Retourne UNIQUEMENT un JSON valide, sans texte supplémentaire :**\n\n```json\n{\n  \"champ1\": \"valeur1\",\n  \"champ2\": \"valeur2\",\n  \"champ3\": \"valeur3\"\n}\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        -140,
+        260
+      ],
+      "id": "dda9f13e-52da-4532-858c-52582fecf4a5",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appuzvNMjHdlGZQeE",
+          "mode": "list",
+          "cachedResultName": "PDF Analysis",
+          "cachedResultUrl": "https://airtable.com/appuzvNMjHdlGZQeE"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblxVgU0X28ko9ZiI",
+          "mode": "list",
+          "cachedResultName": "Metadata",
+          "cachedResultUrl": "https://airtable.com/appuzvNMjHdlGZQeE/tblxVgU0X28ko9ZiI"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date Extracted": "2025-07-17T10:39:38",
+            "document_type": "={{ $('AI Classifier').item.json.output }}",
+            "MetaData": "={{ $('AI Agent').item.json.output }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "MetaData",
+              "displayName": "MetaData",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "document_type",
+              "displayName": "document_type",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Date Extracted",
+              "displayName": "Date Extracted",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Summaries",
+              "displayName": "Summaries",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "document_original",
+              "displayName": "document_original",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        800,
+        -40
+      ],
+      "id": "3bc7366d-277d-4c19-8f93-c3efba3f796c",
+      "name": "Create a record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "gEyTQ3QFmJAgbate",
+          "name": "Airtable Personal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n    const text = $('Extract from File').first().json.text;\n    const type = $('AI Classifier').first().json.output;\n    let data = $('AI Agent').first().json;\n\n    // Tenter de parser la réponse si c'est une string\n    if (typeof data === 'string') {\n        const match = data.match(/\\{[\\s\\S]*\\}/);\n        if (match) {\n            data = JSON.parse(match[0]);\n        } else {\n            data = {};\n        }\n    }\n\n    const isValid = data && Object.keys(data).length > 0;\n\n    return {\n        ...data,\n        document_type: type,\n        processed_at: new Date().toISOString(),\n        extraction_success: isValid,\n        trigger_create: true,\n        trigger_email: true,\n    };\n\n} catch (error) {\n    return {\n        extraction_success: true,\n        error: error.message,\n        trigger_create: true,\n        trigger_email: true,\n    };\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        20
+      ],
+      "id": "afc3a047-dee5-49e2-b863-586077e6d0db",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "99ec4073-eb05-417c-9efb-3842464e940d",
+              "leftValue": "={{ $json.extraction_success }}",
+              "rightValue": "=true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        420
+      ],
+      "id": "8618b16c-e8d4-499f-bc9e-78db8cf44d05",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "sofianoure@gmail.com",
+        "subject": "=🚨 Alerte Classification - {{ $json.alert.type }}",
+        "message": "=ALERTE DÉTECTÉE  Type d'alerte : {{ $json.alert.type }} Message : {{ $json.alert.message }} Priorité : {{ $json.alert.priority }}  INFORMATIONS DOCUMENT : Classification : {{ $json.documentInfo.classification }} Niveau de confiance : {{ $json.documentInfo.confidence }}  Timestamp : {{ $json.alert.timestamp }}  --- Système de classification automatique n8n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        940,
+        400
+      ],
+      "id": "0f134a1e-b5a6-402e-bd4a-6e7469a56dcc",
+      "name": "Send a message",
+      "webhookId": "1f3b2a95-0205-4e5b-8d75-e422c38eae64",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bJEMKwgQ44Ph16HE",
+          "name": "SendAlert"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -140,
+        480
+      ],
+      "id": "4977eb19-c787-4bc4-bfda-30381bb4fb6a",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "oBaI3J75sjz6qO3q",
+          "name": "LLMAgent"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -620,
+        460
+      ],
+      "id": "e2c1e687-7f50-4b68-9b36-2d709ab8a9d7",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "oBaI3J75sjz6qO3q",
+          "name": "LLMAgent"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyse ce texte extrait d'un PDF et retourne UNIQUEMENT le type de document.\n\nTypes possibles : fiche de paie, facture, contrat, rapport, lettre, attestation, relevé bancaire, certificat, autre\n\nRéponds par un seul mot sans guillemets ni ponctuation.\n\nTexte : {{ $json.text }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        260
+      ],
+      "id": "a51c4783-8415-412b-a998-0e7ecaf28b36",
+      "name": "AI Classifier"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "File Ref": {
+      "main": [
+        [
+          {
+            "node": "Get File Hash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get File Hash": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid File?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "400 Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Create a record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "AI Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /ai_pdf_summariser": {
+      "main": [
+        [
+          {
+            "node": "File Ref",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a record": {
+      "main": [
+        [
+          {
+            "node": "Success1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Classifier": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "da4aef38-7043-47c3-a924-1bedd02e5ca6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "814e65e0d08e43552e0384c14943c9eb0cc68aa9e0333c5f1d850fec708e7804"
+  },
+  "id": "q5beWRMpmOlTGR5J",
+  "tags": []
+}
