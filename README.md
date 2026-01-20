@@ -95,11 +95,6 @@ AI & Automation Intern – CaptureDoc
 
 ## 📄 Usage Notes
 
-To run **DocAiAgent**:
-
-1. Import the JSON workflow into **n8n**
-2. Configure required credentials:
-   - OpenAI API key
-   - Airtable base and API token
-   - Email service credentials
-3. Customize document categories, rules, and prompts as needed
+The workflow is fully implemented and ready to use.
+Predefined document categories, classification rules, and optimized AI
+prompts are included and can be adjusted if needed for other contexts.
